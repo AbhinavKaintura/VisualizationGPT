@@ -1,0 +1,14 @@
+[
+    {
+        "user": "orovide summary with graph",
+        "assistant": false
+    },
+    {
+        "user": "forecate it for two months",
+        "assistant": false
+    },
+    {
+        "user": "Provide me the summary of the data with graphs",
+        "assistant": false
+    }
+]

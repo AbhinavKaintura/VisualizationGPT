@@ -1,0 +1,72 @@
+import axios from 'axios';
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function middleware(request: NextRequest) {
+  // Get token from cookies
+  const tokenCookie = request.cookies.get('accessToken')?.value;
+  const url = new URL(request.url);
+  const pathName = url.pathname;
+  const fileName = url.searchParams.get('fileName');
+
+  console.log("Token Cookie:", tokenCookie);
+  console.log("Requested Path:", pathName);
+  console.log("File Name Query Parameter:", fileName);
+
+  // Handle redirection for authenticated users trying to access /Authentication
+  if (tokenCookie && pathName === '/Authentication') {
+    console.log("Authenticated user trying to access /Authentication. Redirecting to /UploadPage.");
+    return NextResponse.redirect(new URL('/UploadPage', request.url));
+  }
+
+  if (!tokenCookie) {
+    if (pathName === '/Authentication' || pathName === '/Authentication/requestAccess') {
+      // Allow access to /Authentication for unauthenticated users
+      console.log("Unauthenticated user accessing /Authentication or /Authentication/requestAccess. Allowing access.");
+      return NextResponse.next();
+    }
+    // Redirect unauthenticated users to /Authentication
+    console.log("Unauthenticated user trying to access a protected route. Redirecting to /Authentication.");
+    return NextResponse.redirect(new URL('/Authentication', request.url));
+  }
+
+  try {
+    console.log("Token exists. Verifying token...");
+    const response = await axios.post(process.env.NEXT_PUBLIC_nextbackend+'api/verifyToken', { token: tokenCookie });
+
+    console.log("Response Status:", response.status);
+    console.log("Response Data Status:", response.data.status);
+
+    if (response.status === 200) {
+      console.log("Token is valid.");
+      if (pathName === '/ChatPage' || pathName === '/UploadPage/StartChat' || pathName === '/Authentication/requestAccess') {
+        if (!fileName) {
+          console.log("FileName query parameter is missing. Redirecting to /404.");
+          return NextResponse.redirect(new URL('/404', request.url));
+        }
+      }
+      if (pathName === '/Authentication/requestAccess') {
+        console.log("Redirecting to /404 from /Authentication/requestAccess.");
+        return NextResponse.redirect(new URL('/404', request.url));
+      }
+      return NextResponse.next();
+    } else if (response.status === 201) {
+      console.log("Token verification returned status 201. Redirecting to /Authentication with message.");
+      return NextResponse.redirect(new URL(`/Authentication?message=${response.data.message}`, request.url));
+    }
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return NextResponse.redirect(new URL(`/Authentication?message="It looks like we couldn't verify your session, so please log in again."`, request.url));
+  }
+}
+
+export const config = {
+  matcher: [
+    '/Authentication/requestAccess',
+    '/Authentication',
+    '/UploadPage',
+    '/UploadPage/StartChat',
+    '/ChatPage',
+    '/404',
+    // '/api/other path names'
+  ],
+};

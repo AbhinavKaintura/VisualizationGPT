@@ -1,0 +1,30 @@
+.login {
+  background-image: url(../../assets/images/Log-In.png);
+  background-size: cover;
+  background-position: bottom;
+  background-repeat: no-repeat;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: rgba(255,255,255, 0.6);
+  transition: background-color 500000s ease-in-out 0s;
+  caret-color:  rgba(255,255,255, 0.6);
+}
+
+.input-field {
+  @apply bg-white bg-opacity-20 text-white text-sm rounded-lg block w-full p-2.5 focus:outline-none caret-black hover:bg-white hover:bg-opacity-30;
+}
+
+.hide-spin-buttons {
+  -moz-appearance: textfield;
+}
+
+.hide-spin-buttons::-webkit-outer-spin-button,
+.hide-spin-buttons::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

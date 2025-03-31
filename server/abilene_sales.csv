@@ -1,0 +1,2 @@
+OrderDate,Category,City,Country,CustomerName,Discount,OrderID,PostalCode,ProductName,Profit,Quantity,Region,Sales,Segment,ShipDate,ShipMode,State,Sub_Category,DaystoShipActual,SalesForecast,ShipStatus,DaystoShipScheduled,OrderProfitable,SalesperCustomer,ProfitRatio,SalesaboveTarget,latitude,longitude
+2014-12-12T00:00:00.000Z,Office Supplies,Abilene,United States,Dennis Kane,0.8,CA-2014-165099,79605,Hoover Commercial Lightweight Upright Vacuum,-4,2,Central,1,Consumer,2014-12-14T00:00:00.000Z,First Class,Texas,Appliances,2,2,Shipped Late,1,,1.39,-270.0,,32.432,-99.7724

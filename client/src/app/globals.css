@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .no-scrollbar::-webkit-scrollbar {
+      display: none ;
+  }
+ /* Hide scrollbar for IE, Edge and Firefox */
+  .no-scrollbar {
+      -ms-overflow-style: none ;  /* IE and Edge */
+      scrollbar-width: none ;  /* Firefox */
+}
+}
+
+.symbol {
+  font-family: 'Arial', 'Helvetica', 'sans-serif';
+}
+/* Custom scrollbar for chatpage components */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 5px;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+ 
+/* Gradient Animation */
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Gradient Background */
+.gradient-background {
+  background: linear-gradient(90deg, #eaf3f4, #77d5ea);
+  background-size: 300% 70%;
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(90deg, #eaf3f4, #77d5ea);
+  background-size: 150% 50%;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-animate {
+  background: linear-gradient(90deg, #FF00C7, #8000FF,#c1b6b6,#FF00C7,  #8000FF);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-animation 4s ease infinite;
+  background-clip: text;
+}
+
+@keyframes moveBackground {
+  0% {
+    background-position: right;
+  }
+
+  50% {
+    background-position: left;
+
+  }
+  100% {
+    background-position: right;
+
+  }
+}
+
+.loginBack {
+  background-image: url(../assets/images/LogBG.png);
+  background-size: cover;
+  background-repeat: no-repeat;
+  animation: moveBackground 10s ease infinite;
+}
+
+
+.gradient-border{
+background: linear-gradient(to right, #FF00C7, #8000FF);
+padding: 2px;
+border-radius: 7px; 
+}
+
+.InfoBG {
+  background: url('../assets/images/infoBG.png') no-repeat center center fixed;
+  background-size: cover;
+}
+
+.ChatBG {
+  background: url('../assets/images/ChatBG.png') no-repeat center center fixed;
+  background-size: cover;
+}
+
+.MovingBG {
+  background: url('../assets/images/MovingBG.png') repeat;
+  background-size: cover;
+  animation: moveBackground 20s ease infinite;
+}
