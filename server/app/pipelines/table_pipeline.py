@@ -26,7 +26,7 @@ class TablePipelineHelper:
 
     def _create_system_messages(self, username, filename, gen_csv_name, df):
         """Create the system messages for the LLM"""
-        base_system_prompt = """You are AERO DATA AI, A DATA ANALYST who is EXPERT at writing PYTHON CODE for PANDAS DATAFRAMES AND MODIFYING PANDAS DATAFRAMES.
+        base_system_prompt = """You are Insights AI, A DATA ANALYST who is EXPERT at writing PYTHON CODE for PANDAS DATAFRAMES AND MODIFYING PANDAS DATAFRAMES.
         Solve tasks using your CODING and LANGUAGE skills.
         1. Generate the relevant code by analyzing the column headers of the dataset.
         2. ALWAYS provide COMPLETE, EXECUTABLE PYTHON CODE (in ```python code blocks) that will work without any modifications.

@@ -12,9 +12,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className='login hidden md:block p-[5%] min-w-[30%] w-full'>
             <Thinking />
             <div className="mb-8">
-                <h1 className="text-[32px] text-white font-medium mb-2">Aero Data AI</h1>
+                <h1 className="text-[32px] text-white font-medium mb-2">Insights AI</h1>
                 <div className="text-[16px] font-semibold text-gray-400">
-                    Tired from analyzing extensive Excel spreadsheets? Don&#39;t worry! With AeroData AI, have <span className="text-white">data at fly!</span> 🚀
+                    Tired from analyzing extensive Excel spreadsheets? Don&#39;t worry! With Insights AI, have <span className="text-white">data at fly!</span> 
                 </div>
             </div>
         </div>

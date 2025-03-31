@@ -29,7 +29,7 @@ def get_response(prompt,fileName,userName):
 
     df = pd.read_csv(f'{project_dir}/Uploads/{fileName}', encoding='utf-8')
 
-    base_system_prompt = """You are AERO DATA AI, A DATA ANALYST who is EXPERT at writing PYTHON CODE for PANDAS DATAFRAMES.
+    base_system_prompt = """You are Insights AI, A DATA ANALYST who is EXPERT at writing PYTHON CODE for PANDAS DATAFRAMES.
     Solve tasks using your CODING and LANGUAGE skills.
 
    #Instructions:

@@ -55,7 +55,6 @@ const ChatPage = () => {
         setPinTable(!pinTable)
     }
     const bottomOfChat = useRef<HTMLDivElement>(null);
-    // function to scroll to bottomfeedbackid
     const scrollToBottom: () => void = () => {
         bottomOfChat.current?.scrollIntoView({ behavior: "smooth" });
     };

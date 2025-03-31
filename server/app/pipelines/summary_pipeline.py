@@ -30,7 +30,7 @@ def trigger_summary_pipeline(prompt,fileName,userName):
     data_description = df.describe(include='all')
     null_values = df.isnull().sum()
     
-    base_system_prompt = """You are AERO DATA AI, an expert data analyst and summariser. The user has a dataset. The whole dataset cannot be shared with you but you can take a look at some key details of the dataset. Your task is to take all the key details under consideration and generate a summary of the dataset that the user will read.
+    base_system_prompt = """You are  Insights AI, an expert data analyst and summariser. The user has a dataset. The whole dataset cannot be shared with you but you can take a look at some key details of the dataset. Your task is to take all the key details under consideration and generate a summary of the dataset that the user will read.
     Before creating the summary, remember that the user cannot provide any other feedback or perform any other action beyond reading your summary, do not suggest anything else than the summary.
     """
     messages = [

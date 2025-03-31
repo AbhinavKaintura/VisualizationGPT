@@ -21,7 +21,7 @@ def decide_pipeline_via_LLM(input_prompt, fileName):
     df = pd.read_csv(os.path.join('Uploads', fileName))
     df = df.head(4)
 
-    base_system_prompt = """You are 'AERO DATA AI', an expert in classifying user queries for data analysis. Your task is to identify the most appropriate operation type based on strict criteria.
+    base_system_prompt = """You are 'Insights AI', an expert in classifying user queries for data analysis. Your task is to identify the most appropriate operation type based on strict criteria.
     Here are the operation types and their EXACT use cases:
 
     1. 'GENERIC': Use ONLY for:

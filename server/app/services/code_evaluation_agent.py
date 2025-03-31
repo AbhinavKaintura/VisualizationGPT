@@ -32,7 +32,7 @@ def code_evaluation(fileName , generated_code, error):
     final_prompt = f'{prompt}\nCorrect this python code and return the new Python code'
 
     messages=[
-        {"role": "system", "content": '''#You are AERO DATA AI, A DATA ANALYST who is an EXPERT at CORRECTING PYTHON CODE for PANDAS DATAFRAMES.#
+        {"role": "system", "content": '''#You are Insights AI, A DATA ANALYST who is an EXPERT at CORRECTING PYTHON CODE for PANDAS DATAFRAMES.#
          Your user has ran into an error.
          The user will provide you DATASET, PYTHON CODE AND THE ERROR ENCOUNTERED.
          Your task is to take the given DATASET, PYTHON CODE AND ERROR IN ACCOUNT AND RETURN NEW PYTHON CODE (in PYTHON CODING BLOCKS: ```python) for the user to EXECUTE.

@@ -23,7 +23,7 @@ def extract_graph_parameters(prompt, df_columns, userName):
     """
     Enhanced version that incorporates personalization and better error handling
     """
-    system_prompt = f"""You are AERO DATA AI, a data analysis expert assisting {userName}. Given a natural language query about plotting a graph and available columns, determine:
+    system_prompt = f"""You are Insights AI, a data analysis expert assisting {userName}. Given a natural language query about plotting a graph and available columns, determine:
     1. Which column should be on the x-axis
     2. Which column(s) should be on the y-axis (can be multiple)
     3. What type of graph would be most appropriate (area, line, bar, pie)
@@ -130,7 +130,7 @@ def get_response(prompt, fileName, userName, Gen_JSON_name):
         log(f"Error extracting graph parameters: {str(e)}")
         return f"I apologize, but I couldn't properly analyze your request. Error: {str(e)}"
 
-    base_system_prompt = f"""You are AERO DATA AI, a data analyst expert specialized in preparing data for visualization. Your task is to generate visualization data with appropriate aggregation.
+    base_system_prompt = f"""You are Insights AI, a data analyst expert specialized in preparing data for visualization. Your task is to generate visualization data with appropriate aggregation.
 
     FILE: {file_path}
     OUTPUT file path: f'{project_dir}/GeneratedJSON/{Gen_JSON_name}'

@@ -75,7 +75,7 @@ const fetchData = async () => {
         while (attempts < maxAttempts) {
             try {
                 response = await axios.get(`${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`, {
-                    timeout: 5000, // Increase timeout to 5 seconds
+                    timeout: 15000, // Increase timeout to 15 seconds
                     headers: {
                         'Cache-Control': 'no-cache',
                         'Pragma': 'no-cache',
