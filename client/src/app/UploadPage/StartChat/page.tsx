@@ -43,6 +43,7 @@ const StartChat = () => {
     const [inRequest, setInRequest] = useState(false);
     const [barChartData, setBarChartData] = useState<any[]>([]);
     const [userName, setUserName] = useState("user"); // Default username
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         // Fetch the uploaded CSV data
@@ -50,8 +51,13 @@ const StartChat = () => {
             if (!fileName) return;
             
             try {
-                const response = await axios.get(`${process.env.NEXT_PUBLIC_pythonApi}getfile?fileName=${fileName}`);
-                if (response.status === 200) {
+                // Ensure the API URL is correctly formatted with a trailing slash if needed
+                const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
+                const apiEndpoint = apiUrl.endsWith('/') ? `${apiUrl}getfile` : `${apiUrl}/getfile`;
+                
+                const response = await axios.get(`${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`);
+                
+                if (response.status === 200 && response.data && Array.isArray(response.data)) {
                     const data = response.data;
                     
                     // Process the data
@@ -64,9 +70,12 @@ const StartChat = () => {
                         // Request AI to generate chart
                         getAiGeneratedChart(data);
                     }
+                } else {
+                    throw new Error("Invalid response format");
                 }
             } catch (error) {
                 console.error('Error fetching CSV data:', error);
+                setError('Failed to load data. Please try again.');
             } finally {
                 setIsLoading(false);
             }
@@ -81,12 +90,19 @@ const StartChat = () => {
         abortControllerRef.current = new AbortController();
         
         try {
-            const res = await fetch(process.env.NEXT_PUBLIC_pythonApi + 'query', {
+            const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
+            const apiEndpoint = apiUrl.endsWith('/') ? `${apiUrl}query` : `${apiUrl}/query`;
+            
+            const res = await fetch(apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ prompt: userPrompt, fileName, userName }),
+                body: JSON.stringify({ 
+                    prompt: userPrompt, 
+                    fileName, 
+                    userName 
+                }),
                 signal: abortControllerRef.current.signal,
             });
             
@@ -95,20 +111,20 @@ const StartChat = () => {
             }
             
             const resData = await res.json();
-            console.log(resData);
+            console.log('AI Response:', resData);
             return { status: "Success", resData };
         } catch (error: unknown) {
             if (error instanceof Error) {
                 if (error.name === 'AbortError') {
                     console.log('Request was aborted');
-                    return { status: "AbortError", resData:{AIresponse:"Request was aborted",visuals:false }};
+                    return { status: "AbortError", resData: { AIresponse: "Request was aborted", visuals: false } };
                 } else {
                     console.error('Error:', error.message);
-                    return { status: "Error", resData:{AIresponse: "An error occurred",visuals:false} };
+                    return { status: "Error", resData: { AIresponse: "An error occurred", visuals: false } };
                 }
             } else {
                 console.error('An unknown error occurred');
-                return { status: "Error", resData:{AIresponse: "An unknown error occurred",visuals:false }};
+                return { status: "Error", resData: { AIresponse: "An unknown error occurred", visuals: false } };
             }
         } finally {
             setInRequest(false);
@@ -118,22 +134,41 @@ const StartChat = () => {
 
     // Function to request AI-generated chart
     const getAiGeneratedChart = async (data: DataItem[]) => {
-        const prompt = "provide a summarised bar chart for the uploaded data";
-        const aiResponse = await getAiResponse(prompt);
+        // Create a more specific prompt for better chart generation
+        const prompt = `Create a bar chart visualization for the uploaded CSV data. 
+                       The chart should highlight the most important trends or metrics. 
+                       Return the chart data in JSON format that can be used with Recharts.`;
         
-        if (aiResponse.status === "Success" && aiResponse.resData.visuals) {
-            try {
-                // Parse the visual data - assuming it's coming in a format we can use
-                // This might need adjustment based on the actual format returned by the AI
-                const chartData = JSON.parse(aiResponse.resData.visuals);
-                setBarChartData(chartData);
-            } catch (error) {
-                console.error('Error parsing AI chart data:', error);
-                // Fallback to generating a basic chart from the data
-                generateBasicChart(data);
+        try {
+            const aiResponse = await getAiResponse(prompt);
+            
+            if (aiResponse.status === "Success") {
+                if (aiResponse.resData.visuals) {
+                    try {
+                        // Try to parse the visual data
+                        let chartData;
+                        
+                        if (typeof aiResponse.resData.visuals === 'string') {
+                            chartData = JSON.parse(aiResponse.resData.visuals);
+                        } else {
+                            chartData = aiResponse.resData.visuals;
+                        }
+                        
+                        if (Array.isArray(chartData) && chartData.length > 0) {
+                            setBarChartData(chartData);
+                            return;
+                        }
+                    } catch (error) {
+                        console.error('Error parsing AI chart data:', error);
+                    }
+                }
             }
-        } else {
-            // Fallback to generating a basic chart from the data
+            
+            // If we reach here, either the AI didn't return proper visualization data
+            // or there was an error, so fall back to generating a basic chart
+            generateBasicChart(data);
+        } catch (error) {
+            console.error('Error generating chart:', error);
             generateBasicChart(data);
         }
     };
@@ -144,7 +179,7 @@ const StartChat = () => {
         
         // Find numeric and categorical columns
         const numericColumns = headers.filter(header => {
-            return !isNaN(Number(data[0][header]));
+            return typeof data[0][header] === 'number' || !isNaN(Number(data[0][header]));
         });
         
         const categoricalColumns = headers.filter(header => !numericColumns.includes(header));
@@ -157,7 +192,7 @@ const StartChat = () => {
             const aggregatedData: {[key: string]: number} = {};
             
             data.forEach(row => {
-                const category = row[categoryCol]?.toString() || 'Unknown';
+                const category = String(row[categoryCol] || 'Unknown');
                 const value = Number(row[valueCol]) || 0;
                 
                 if (!aggregatedData[category]) {
@@ -166,10 +201,13 @@ const StartChat = () => {
                 aggregatedData[category] += value;
             });
             
-            const chartData = Object.entries(aggregatedData).map(([name, value]) => ({
-                name,
-                value
-            })).slice(0, 10);
+            const chartData = Object.entries(aggregatedData)
+                .map(([name, value]) => ({
+                    name,
+                    value
+                }))
+                .sort((a, b) => b.value - a.value) // Sort by value descending
+                .slice(0, 10); // Take top 10 values
             
             setBarChartData(chartData);
         }
@@ -183,7 +221,7 @@ const StartChat = () => {
         
         // Find numeric columns for analysis
         const numericColumns = dataHeaders.filter(header => {
-            return !isNaN(Number(data[0][header]));
+            return typeof data[0][header] === 'number' || !isNaN(Number(data[0][header]));
         });
         
         if (numericColumns.length > 0) {
@@ -262,6 +300,10 @@ const StartChat = () => {
                 <div className="flex justify-center items-center h-64">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
+            ) : error ? (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong>Error:</strong> {error}
+                </div>
             ) : (
                 <>
                     {/* Dashboard metrics */}
@@ -281,7 +323,11 @@ const StartChat = () => {
                     {/* AI-generated Bar Chart */}
                     {csvData.length > 0 && (
                         <div className="bg-[#1e293b] p-6 rounded-lg mb-6">
-                            {renderBarChart()}
+                            {barChartData.length > 0 ? renderBarChart() : (
+                                <div className="text-center py-6 text-gray-400">
+                                    No chart data available
+                                </div>
+                            )}
                         </div>
                     )}
                     
@@ -306,7 +352,11 @@ const StartChat = () => {
             {/* Start Chat button */}
             <div className='flex flex-col gap-1'>
                 <div className='gradient-border h-[3.8rem]'>
-                    <button onClick={() => { route.replace(`/ChatPage?fileName=${fileName}`) }} className='h-full w-full items-center justify-center bg-black rounded-[5px]'>
+                    <button 
+                        onClick={() => { route.replace(`/ChatPage?fileName=${fileName}`) }} 
+                        className='h-full w-full items-center justify-center bg-black rounded-[5px]'
+                        disabled={isLoading || !fileName}
+                    >
                         <span className='gradient-text font-bold'>Start Chat 🡪</span>
                     </button>
                 </div>

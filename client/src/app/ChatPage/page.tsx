@@ -1,3 +1,5 @@
+//chatpage/page.tsx
+
 "use client";
 import Thinking from "@/components/Threedots/index";
 import UserMessage from "@/app/ChatPage/UserMessage/index";
