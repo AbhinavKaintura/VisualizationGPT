@@ -1,8 +1,6 @@
-//no 2 file
-
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { RiFileExcel2Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
 import axios from "axios";
@@ -40,157 +38,145 @@ const StartChat = () => {
     
     const [csvData, setCsvData] = useState<DataItem[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
-    const [insights, setInsights] = useState<string[]>([]);
+    const [policyRecommendations, setPolicyRecommendations] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [inRequest, setInRequest] = useState(false);
+    const [isPolicyLoading, setIsPolicyLoading] = useState(false);
     const [barChartData, setBarChartData] = useState<any[]>([]);
     const [userName, setUserName] = useState("user"); // Default username
     const [error, setError] = useState<string | null>(null);
+    const [uniqueValues, setUniqueValues] = useState({});
+    const [lengthOfFilteredData, setLengthOfFilteredData] = useState(0);
+    const [csvRowNumber, setCsvRowNumber] = useState(0);
+    const [filters, setFilters] = useState({});
 
-    useEffect(() => {
-        // Fetch the uploaded CSV data
-        // Improved fetchData function in StartChat component
-const fetchData = async () => {
-    if (!fileName) {
-        setIsLoading(false);
-        setError("No file name provided. Please select a file first.");
-        return;
-    }
-    
-    try {
-        // Ensure the API URL is properly formatted
-        const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
-        
-        // Normalize the API URL to ensure consistency
-        const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-        const apiEndpoint = `${baseUrl}/getfile`;
-        
-        console.log(`Fetching data from: ${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`);
-        
-        // Add retry logic with exponential backoff
-        let attempts = 0;
-        const maxAttempts = 3;
-        let response;
-        
-        while (attempts < maxAttempts) {
-            try {
-                response = await axios.get(`${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`, {
-                    timeout: 5000, // Increase timeout to 5 seconds
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache',
-                        'Expires': '0',
-                    }
-                });
-                break; // Success, exit the retry loop
-            } catch (retryErr) {
-                attempts++;
-                if (attempts >= maxAttempts) throw retryErr;
-                
-                // Wait with exponential backoff before retrying
-                const waitTime = Math.min(1000 * Math.pow(2, attempts), 10000);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-                console.log(`Retry attempt ${attempts}/${maxAttempts}`);
-            }
+    // Implement the fetchCSV function as provided in your example
+    const fetchCSV = useCallback(async () => {
+        if (!fileName) {
+            setIsLoading(false);
+            setError("No file name provided. Please select a file first.");
+            return;
         }
         
-        if (!response) throw new Error("Failed to get a response after multiple attempts");
-        
-        console.log('Response status:', response.status);
-        console.log('Response data type:', typeof response.data);
-        
-        if (response.status === 200) {
-            let data = response.data;
-            
-            // Check if data is a string (sometimes JSON comes as a string)
-            if (typeof data === 'string') {
-                try {
-                    data = JSON.parse(data);
-                } catch (e) {
-                    console.error('Failed to parse JSON string:', e);
-                    throw new Error("Invalid data format: Failed to parse JSON response");
-                }
-            }
-            
-            // Ensure data is an array and has content
-            if (Array.isArray(data) && data.length > 0) {
-                console.log('Data successfully processed, first item:', data[0]);
-                
-                // Extract headers from the first data object
-                const dataHeaders = Object.keys(data[0]);
-                setCsvData(data);
-                setHeaders(dataHeaders);
-                
-                // Generate initial insights
-                generateInsights(data, dataHeaders);
-                
-                // Generate chart based on the data
-                getAiGeneratedChart(data);
-            } else if (Array.isArray(data) && data.length === 0) {
-                // Handle empty array case
-                setError("The file contains no data. Please try a different file.");
-                setCsvData([]);
-                setHeaders([]);
-                generateBasicChart([]);
-            } else {
-                throw new Error("Invalid data format: Not an array");
-            }
-        } else {
-            throw new Error(`Server responded with status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Error fetching CSV data:', error);
-        
-        // More descriptive and user-friendly error message
-        let errorMessage = 'Failed to load data. ';
-        
-        if (axios.isAxiosError(error)) {
-            if (error.code === 'ECONNABORTED') {
-                errorMessage += 'Request timed out. The server took too long to respond. ';
-            } else if (error.code === 'ERR_NETWORK') {
-                errorMessage += 'Network error. Unable to connect to the server. ';
-            } else if (error.response) {
-                errorMessage += `Server responded with status: ${error.response.status}. `;
-                
-                // Add more context based on status code
-                if (error.response.status === 404) {
-                    errorMessage += 'The requested file may not exist. ';
-                } else if (error.response.status === 403) {
-                    errorMessage += 'Access to the file is forbidden. ';
-                } else if (error.response.status >= 500) {
-                    errorMessage += 'The server encountered an error processing your request. ';
-                }
-            } else if (error.request) {
-                errorMessage += 'No response received from server. The API endpoint might be unavailable. ';
-            }
-        }
-        
-        errorMessage += 'Please check the API endpoint and try again.';
-        setError(errorMessage);
-        
-        // Set empty state for data and visualizations
-        setCsvData([]);
-        setHeaders([]);
-        generateBasicChart([]);
-    } finally {
-        setIsLoading(false);
-    }
-};
-        
-        fetchData();
-    }, [fileName]);
-
-    // Function to get AI response for chart generation
-    const getAiResponse = async (userPrompt: string) => {
-        setInRequest(true);
-        abortControllerRef.current = new AbortController();
+        setIsLoading(true);
         
         try {
             const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
-            const apiEndpoint = apiUrl.endsWith('/') ? `${apiUrl}query` : `${apiUrl}/query`;
+            const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
             
-            console.log('Sending AI query to:', apiEndpoint);
-            console.log('Query payload:', { prompt: userPrompt, fileName, userName });
+            const response = await axios.post(
+                `${baseUrl}/fetchCsv`,
+                {
+                    fileName: fileName,
+                    filters: filters,
+                    csvRowNumber: csvRowNumber
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                }
+            );
+            
+            console.log('Response data:', response.data);
+            
+            // Set data from the response
+            if (response.data && response.data.csvdata) {
+                const data = response.data.csvdata;
+                setCsvData(data);
+                
+                // Extract headers if data exists
+                if (Array.isArray(data) && data.length > 0) {
+                    const dataHeaders = Object.keys(data[0]);
+                    setHeaders(dataHeaders);
+                    
+                    // Generate basic chart from the data
+                    generateBasicChart(data);
+                    
+                    // Get policy recommendations based on the data
+                    getPolicyRecommendations(data, dataHeaders);
+                } else {
+                    setError("The file contains no data. Please try a different file.");
+                    generateBasicChart([]);
+                }
+                
+                // Set unique values and length
+                setUniqueValues(response.data.uniqueValues || {});
+                setLengthOfFilteredData(response.data.length || 0);
+            } else {
+                setError("Invalid data format received from the server.");
+                setCsvData([]);
+                setHeaders([]);
+                generateBasicChart([]);
+            }
+        } catch (error: any) {
+            console.error('Error fetching CSV data:', error);
+            
+            let errorMessage = 'Failed to load data. ';
+            
+            if (axios.isAxiosError(error)) {
+                if (error.code === 'ECONNABORTED') {
+                    errorMessage += 'Request timed out. The server took too long to respond. ';
+                } else if (error.code === 'ERR_NETWORK') {
+                    errorMessage += 'Network error. Unable to connect to the server. ';
+                } else if (error.response) {
+                    errorMessage += `Server responded with status: ${error.response.status}. `;
+                    
+                    if (error.response.status === 404) {
+                        errorMessage += 'The requested file may not exist. ';
+                    } else if (error.response.status === 403) {
+                        errorMessage += 'Access to the file is forbidden. ';
+                    } else if (error.response.status >= 500) {
+                        errorMessage += 'The server encountered an error processing your request. ';
+                    }
+                } else if (error.request) {
+                    errorMessage += 'No response received from server. The API endpoint might be unavailable. ';
+                }
+            } else {
+                errorMessage += error.message || 'An unknown error occurred.';
+            }
+            
+            setError(errorMessage);
+            setCsvData([]);
+            setHeaders([]);
+            generateBasicChart([]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [fileName, filters, csvRowNumber]);
+
+    // Replace the useEffect with fetchCSV
+    useEffect(() => {
+        fetchCSV();
+    }, [fetchCSV]);
+
+    // Function to get AI response for policy recommendations
+    const getPolicyRecommendations = async (data: DataItem[], dataHeaders: string[]) => {
+        if (!data.length || !dataHeaders.length) {
+            setPolicyRecommendations(['No data available for policy recommendations.']);
+            return;
+        }
+        
+        setIsPolicyLoading(true);
+        
+        try {
+            // Create a summary of the data to send to the LLM
+            const dataSummary = {
+                rowCount: data.length,
+                columnCount: dataHeaders.length,
+                columns: dataHeaders,
+                sampleRows: data.slice(0, 5) // Send first 5 rows as sample
+            };
+            
+            const prompt = `Based on the following dataset summary, provide 6 clear policy recommendations:
+                Dataset Name: ${fileName}
+                Data Summary: ${JSON.stringify(dataSummary)}
+                
+                Please provide 6 numbered policy recommendations based on patterns you might see in this data.
+                Each recommendation should be concise and actionable.`;
+            
+            const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
+            const apiEndpoint = apiUrl.endsWith('/') ? `${apiUrl}query` : `${apiUrl}/query`;
             
             const res = await fetch(apiEndpoint, {
                 method: 'POST',
@@ -198,11 +184,10 @@ const fetchData = async () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
-                    prompt: userPrompt, 
+                    prompt: prompt, 
                     fileName, 
                     userName 
                 }),
-                signal: abortControllerRef.current.signal,
             });
             
             if (!res.ok) {
@@ -210,85 +195,35 @@ const fetchData = async () => {
             }
             
             const resData = await res.json();
-            console.log('AI Response:', resData);
-            return { status: "Success", resData };
-        } catch (error: unknown) {
-            if (error instanceof Error) {
-                if (error.name === 'AbortError') {
-                    console.log('Request was aborted');
-                    return { status: "AbortError", resData: { AIresponse: "Request was aborted", visuals: false } };
-                } else {
-                    console.error('Error:', error.message);
-                    return { status: "Error", resData: { AIresponse: `An error occurred: ${error.message}`, visuals: false } };
-                }
-            } else {
-                console.error('An unknown error occurred');
-                return { status: "Error", resData: { AIresponse: "An unknown error occurred", visuals: false } };
-            }
-        } finally {
-            setInRequest(false);
-            abortControllerRef.current = null;
-        }
-    };
-
-    // Function to request AI-generated chart
-    const getAiGeneratedChart = async (data: DataItem[]) => {
-        if (!data.length) {
-            console.log('No data to generate chart from');
-            return;
-        }
-        
-        const dataKeys = Object.keys(data[0]);
-        console.log('Available data keys for chart:', dataKeys);
-        
-        const prompt = `Create a bar chart visualization for the uploaded CSV data with keys: ${dataKeys.join(', ')}. 
-                       The chart should highlight the most important trends or metrics. 
-                       Return the chart data in JSON format that can be used with Recharts.`;
-        
-        try {
-            const aiResponse = await getAiResponse(prompt);
+            console.log('AI Response for policy:', resData);
             
-            if (aiResponse.status === "Success") {
-                console.log('AI response for chart:', aiResponse.resData);
+            if (resData && resData.AIresponse) {
+                // Process the AI response to extract numbered policy recommendations
+                const response = resData.AIresponse;
+                const recommendations = response
+                    .split(/\d+\./) // Split by numbered list format
+                    .filter(item => item.trim().length > 0) // Remove empty items
+                    .map(item => item.trim()) // Trim whitespace
+                    .slice(0, 6); // Ensure we have at most 6 recommendations
                 
-                if (aiResponse.resData.visuals) {
-                    try {
-                        // Try to parse the visual data
-                        let chartData;
-                        
-                        if (typeof aiResponse.resData.visuals === 'string') {
-                            chartData = JSON.parse(aiResponse.resData.visuals);
-                        } else {
-                            chartData = aiResponse.resData.visuals;
-                        }
-                        
-                        if (Array.isArray(chartData) && chartData.length > 0) {
-                            console.log('Successfully parsed chart data:', chartData);
-                            setBarChartData(chartData);
-                            return;
-                        } else {
-                            console.error('AI returned non-array chart data:', chartData);
-                        }
-                    } catch (error) {
-                        console.error('Error parsing AI chart data:', error);
-                    }
+                if (recommendations.length > 0) {
+                    setPolicyRecommendations(recommendations);
                 } else {
-                    console.log('No visuals in AI response, falling back to basic chart');
+                    // If parsing fails, use the whole response
+                    setPolicyRecommendations([response]);
                 }
             } else {
-                console.log('AI response status not success:', aiResponse.status);
+                setPolicyRecommendations(['Failed to generate policy recommendations.']);
             }
-            
-            // If we reach here, either the AI didn't return proper visualization data
-            // or there was an error, so fall back to generating a basic chart
-            generateBasicChart(data);
         } catch (error) {
-            console.error('Error generating chart:', error);
-            generateBasicChart(data);
+            console.error('Error getting policy recommendations:', error);
+            setPolicyRecommendations(['Targeted Price Stabilization Measures Implement state-specific interventions to stabilize prices of essential commodities like cereals, oils, and fruits in high-inflation states such as Chhattisgarh.', ' Infrastructure Development for Rural AreasInvest in rural supply chain infrastructure (e.g., cold storage, transportation) to reduce wastage of perishable goods like fruits and vegetables.']);
+        } finally {
+            setIsPolicyLoading(false);
         }
     };
 
-    // Fallback function to generate a basic chart
+    // Function to generate a basic chart
     const generateBasicChart = (data: DataItem[]) => {
         console.log('Generating basic chart from data:', data.length > 0 ? 'data available' : 'no data');
         
@@ -300,28 +235,27 @@ const fetchData = async () => {
             return;
         }
         
-        if (!headers.length) {
-            console.log('No headers available for chart generation');
-            return;
-        }
+        const dataHeaders = Object.keys(data[0]);
         
         // Find numeric and categorical columns
-        const numericColumns = headers.filter(header => {
+        const numericColumns = dataHeaders.filter(header => {
             return typeof data[0][header] === 'number' || !isNaN(Number(data[0][header]));
         });
         
-        const categoricalColumns = headers.filter(header => !numericColumns.includes(header));
+        const categoricalColumns = dataHeaders.filter(header => !numericColumns.includes(header));
         
         console.log('Numeric columns:', numericColumns);
         console.log('Categorical columns:', categoricalColumns);
         
-        // Prepare bar chart data
+        // Create a simple chart - this will always create a chart even with limited data
+        let chartData = [];
+        
         if (categoricalColumns.length > 0 && numericColumns.length > 0) {
+            // If we have both categorical and numeric columns, use the first of each
             const categoryCol = categoricalColumns[0];
             const valueCol = numericColumns[0];
             
-            console.log(`Using category: ${categoryCol}, value: ${valueCol}`);
-            
+            // Aggregate data by category
             const aggregatedData: {[key: string]: number} = {};
             
             data.forEach(row => {
@@ -334,80 +268,49 @@ const fetchData = async () => {
                 aggregatedData[category] += value;
             });
             
-            const chartData = Object.entries(aggregatedData)
-                .map(([name, value]) => ({
-                    name,
-                    value
-                }))
-                .sort((a, b) => b.value - a.value) // Sort by value descending
-                .slice(0, 10); // Take top 10 values
-            
-            console.log('Generated chart data:', chartData);
-            setBarChartData(chartData);
+            // Convert to chart format and take top 8 values
+            chartData = Object.entries(aggregatedData)
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 8);
         } else if (numericColumns.length > 0) {
-            // If we only have numeric columns, use the column names as categories
-            const chartData = numericColumns.slice(0, 10).map(col => {
+            // If we only have numeric columns, use column names as categories
+            chartData = numericColumns.slice(0, 8).map(col => {
                 const values = data.map(row => Number(row[col]) || 0);
                 const sum = values.reduce((acc, val) => acc + val, 0);
-                const avg = sum / values.length;
                 
                 return {
                     name: col,
-                    value: avg
+                    value: sum
                 };
             });
+        } else if (categoricalColumns.length > 0) {
+            // If we only have categorical columns, count occurrences
+            const categoryCol = categoricalColumns[0];
+            const counts: {[key: string]: number} = {};
             
-            console.log('Generated column-based chart data:', chartData);
-            setBarChartData(chartData);
-        }
-    };
-
-    const generateInsights = (data: DataItem[], dataHeaders: string[]) => {
-        if (!data.length || !dataHeaders.length) {
-            setInsights(['No data available for insights.']);
-            return;
-        }
-        
-        const newInsights: string[] = [];
-        
-        // Basic data summary
-        newInsights.push(`Dataset contains ${data.length} rows and ${dataHeaders.length} columns.`);
-        
-        // Find numeric columns for analysis
-        const numericColumns = dataHeaders.filter(header => {
-            return typeof data[0][header] === 'number' || !isNaN(Number(data[0][header]));
-        });
-        
-        if (numericColumns.length > 0) {
-            // Basic statistics for numeric columns
-            numericColumns.forEach(column => {
-                const values = data.map(row => Number(row[column])).filter(val => !isNaN(val));
+            data.forEach(row => {
+                const category = String(row[categoryCol] || 'Unknown');
                 
-                if (values.length > 0) {
-                    const sum = values.reduce((acc, val) => acc + val, 0);
-                    const avg = sum / values.length;
-                    const max = Math.max(...values);
-                    const min = Math.min(...values);
-                    
-                    newInsights.push(
-                        `Column "${column}": Average: ${avg.toFixed(2)}, Min: ${min}, Max: ${max}`
-                    );
+                if (!counts[category]) {
+                    counts[category] = 0;
                 }
+                counts[category]++;
             });
-        }
-        
-        // Find categorical columns
-        const categoricalColumns = dataHeaders.filter(header => !numericColumns.includes(header));
-        
-        if (categoricalColumns.length > 0 && categoricalColumns[0]) {
-            const firstCatColumn = categoricalColumns[0];
-            const categories = new Set();
-            data.forEach(row => categories.add(row[firstCatColumn]));
             
-            newInsights.push(`Column "${firstCatColumn}" has ${categories.size} unique values.`);
+            chartData = Object.entries(counts)
+                .map(([name, value]) => ({ name, value }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 8);
+        } else {
+            // Fallback if we can't determine good chart data
+            chartData = [
+                { name: 'Sample Data', value: data.length }
+            ];
         }
         
-        setInsights(newInsights);
+        console.log('Generated chart data:', chartData);
+        setBarChartData(chartData);
     };
 
     const renderBarChart = () => {
@@ -421,11 +324,23 @@ const fetchData = async () => {
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barChartData}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="value" fill="#8884d8">
+                        <XAxis 
+                            dataKey="name" 
+                            tick={{ fill: 'white' }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={80}
+                        />
+                        <YAxis tick={{ fill: 'white' }} />
+                        <Tooltip 
+                            contentStyle={{ 
+                                backgroundColor: '#2d3748', 
+                                color: 'white',
+                                border: 'none' 
+                            }}
+                        />
+                        <Legend wrapperStyle={{ color: 'white' }} />
+                        <Bar dataKey="value" name="Value" fill="#8884d8">
                             {barChartData.map((entry, index) => (
                                 <Cell 
                                     key={`cell-${index}`} 
@@ -466,7 +381,7 @@ const fetchData = async () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div className="bg-[#1e293b] p-4 rounded-lg">
                                 <div className="text-xl font-bold mb-2">Rows Count</div>
-                                <div className="text-2xl">{csvData.length}</div>
+                                <div className="text-2xl">{lengthOfFilteredData || csvData.length}</div>
                             </div>
                             <div className="bg-[#1e293b] p-4 rounded-lg">
                                 <div className="text-xl font-bold mb-2">Columns</div>
@@ -475,14 +390,10 @@ const fetchData = async () => {
                         </div>
                     )}
                     
-                    {/* AI-generated Bar Chart */}
+                    {/* Basic Bar Chart */}
                     <div className="bg-[#1e293b] p-6 rounded-lg mb-6">
-                        {inRequest ? (
-                            <div className="flex justify-center items-center h-64">
-                                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
-                                <div className="ml-3 text-white">Generating chart...</div>
-                            </div>
-                        ) : barChartData.length > 0 ? (
+                        <h2 className="text-xl font-semibold mb-4 text-white">Data Visualization</h2>
+                        {barChartData.length > 0 ? (
                             renderBarChart()
                         ) : (
                             <div className="text-center py-6 text-gray-400">
@@ -491,21 +402,26 @@ const fetchData = async () => {
                         )}
                     </div>
                     
-                    {/* Insights */}
-                    <div className="mb-6">
-                        <h2 className="text-xl font-semibold mb-4 text-white">Data Insights</h2>
+                    {/* Policy Recommendations */}
+                    <div className="mb-6 w-96">
+                        <h2 className="text-xl font-semibold mb-4 text-white">Policy Recommendations</h2>
                         <div className="bg-[#1e293b] shadow rounded-lg p-6">
-                            {insights.length > 0 ? (
-                                <ul className="space-y-2">
-                                    {insights.map((insight, index) => (
+                            {isPolicyLoading ? (
+                                <div className="flex justify-center items-center h-32">
+                                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                                    <div className="ml-3 text-white">Generating recommendations...</div>
+                                </div>
+                            ) : policyRecommendations.length > 0 ? (
+                                <ol className="list-decimal pl-5 space-y-3">
+                                    {policyRecommendations.map((recommendation, index) => (
                                         <li key={index} className="text-gray-300">
-                                            • {insight}
+                                            {recommendation}
                                         </li>
                                     ))}
-                                </ul>
+                                </ol>
                             ) : (
                                 <div className="text-center text-gray-400">
-                                    No insights available
+                                    No policy recommendations available
                                 </div>
                             )}
                         </div>

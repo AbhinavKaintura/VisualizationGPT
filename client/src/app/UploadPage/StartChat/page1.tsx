@@ -1,8 +1,6 @@
-//no 2 file
-
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { RiFileExcel2Line } from "react-icons/ri";
 import { RxCross2 } from "react-icons/rx";
 import axios from "axios";
@@ -46,139 +44,110 @@ const StartChat = () => {
     const [barChartData, setBarChartData] = useState<any[]>([]);
     const [userName, setUserName] = useState("user"); // Default username
     const [error, setError] = useState<string | null>(null);
+    const [uniqueValues, setUniqueValues] = useState({});
+    const [lengthOfFilteredData, setLengthOfFilteredData] = useState(0);
+    const [csvRowNumber, setCsvRowNumber] = useState(0);
+    const [filters, setFilters] = useState({});
 
-    useEffect(() => {
-        // Fetch the uploaded CSV data
-        // Improved fetchData function in StartChat component
-const fetchData = async () => {
-    if (!fileName) {
-        setIsLoading(false);
-        setError("No file name provided. Please select a file first.");
-        return;
-    }
-    
-    try {
-        // Ensure the API URL is properly formatted
-        const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
-        
-        // Normalize the API URL to ensure consistency
-        const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
-        const apiEndpoint = `${baseUrl}/getfile`;
-        
-        console.log(`Fetching data from: ${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`);
-        
-        // Add retry logic with exponential backoff
-        let attempts = 0;
-        const maxAttempts = 3;
-        let response;
-        
-        while (attempts < maxAttempts) {
-            try {
-                response = await axios.get(`${apiEndpoint}?fileName=${encodeURIComponent(fileName)}`, {
-                    timeout: 15000, // Increase timeout to 15 seconds
-                    headers: {
-                        'Cache-Control': 'no-cache',
-                        'Pragma': 'no-cache',
-                        'Expires': '0',
-                    }
-                });
-                break; // Success, exit the retry loop
-            } catch (retryErr) {
-                attempts++;
-                if (attempts >= maxAttempts) throw retryErr;
-                
-                // Wait with exponential backoff before retrying
-                const waitTime = Math.min(1000 * Math.pow(2, attempts), 10000);
-                await new Promise(resolve => setTimeout(resolve, waitTime));
-                console.log(`Retry attempt ${attempts}/${maxAttempts}`);
-            }
+    // Implement the fetchCSV function as provided in your example
+    const fetchCSV = useCallback(async () => {
+        if (!fileName) {
+            setIsLoading(false);
+            setError("No file name provided. Please select a file first.");
+            return;
         }
         
-        if (!response) throw new Error("Failed to get a response after multiple attempts");
+        setIsLoading(true);
         
-        console.log('Response status:', response.status);
-        console.log('Response data type:', typeof response.data);
-        
-        if (response.status === 200) {
-            let data = response.data;
+        try {
+            const apiUrl = process.env.NEXT_PUBLIC_pythonApi || '';
+            const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
             
-            // Check if data is a string (sometimes JSON comes as a string)
-            if (typeof data === 'string') {
-                try {
-                    data = JSON.parse(data);
-                } catch (e) {
-                    console.error('Failed to parse JSON string:', e);
-                    throw new Error("Invalid data format: Failed to parse JSON response");
+            const response = await axios.post(
+                `${baseUrl}/fetchCsv`,
+                {
+                    fileName: fileName,
+                    filters: filters,
+                    csvRowNumber: csvRowNumber
+                },
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
                 }
-            }
+            );
             
-            // Ensure data is an array and has content
-            if (Array.isArray(data) && data.length > 0) {
-                console.log('Data successfully processed, first item:', data[0]);
-                
-                // Extract headers from the first data object
-                const dataHeaders = Object.keys(data[0]);
+            console.log('Response data:', response.data);
+            
+            // Set data from the response
+            if (response.data && response.data.csvdata) {
+                const data = response.data.csvdata;
                 setCsvData(data);
-                setHeaders(dataHeaders);
                 
-                // Generate initial insights
-                generateInsights(data, dataHeaders);
+                // Extract headers if data exists
+                if (Array.isArray(data) && data.length > 0) {
+                    const dataHeaders = Object.keys(data[0]);
+                    setHeaders(dataHeaders);
+                    
+                    // Generate initial insights
+                    generateInsights(data, dataHeaders);
+                    
+                    // Generate chart based on the data
+                    getAiGeneratedChart(data);
+                } else {
+                    setError("The file contains no data. Please try a different file.");
+                    generateBasicChart([]);
+                }
                 
-                // Generate chart based on the data
-                getAiGeneratedChart(data);
-            } else if (Array.isArray(data) && data.length === 0) {
-                // Handle empty array case
-                setError("The file contains no data. Please try a different file.");
+                // Set unique values and length
+                setUniqueValues(response.data.uniqueValues || {});
+                setLengthOfFilteredData(response.data.length || 0);
+            } else {
+                setError("Invalid data format received from the server.");
                 setCsvData([]);
                 setHeaders([]);
                 generateBasicChart([]);
-            } else {
-                throw new Error("Invalid data format: Not an array");
             }
-        } else {
-            throw new Error(`Server responded with status: ${response.status}`);
-        }
-    } catch (error) {
-        console.error('Error fetching CSV data:', error);
-        
-        // More descriptive and user-friendly error message
-        let errorMessage = 'Failed to load data. ';
-        
-        if (axios.isAxiosError(error)) {
-            if (error.code === 'ECONNABORTED') {
-                errorMessage += 'Request timed out. The server took too long to respond. ';
-            } else if (error.code === 'ERR_NETWORK') {
-                errorMessage += 'Network error. Unable to connect to the server. ';
-            } else if (error.response) {
-                errorMessage += `Server responded with status: ${error.response.status}. `;
-                
-                // Add more context based on status code
-                if (error.response.status === 404) {
-                    errorMessage += 'The requested file may not exist. ';
-                } else if (error.response.status === 403) {
-                    errorMessage += 'Access to the file is forbidden. ';
-                } else if (error.response.status >= 500) {
-                    errorMessage += 'The server encountered an error processing your request. ';
+        } catch (error: any) {
+            console.error('Error fetching CSV data:', error);
+            
+            let errorMessage = 'Failed to load data. ';
+            
+            if (axios.isAxiosError(error)) {
+                if (error.code === 'ECONNABORTED') {
+                    errorMessage += 'Request timed out. The server took too long to respond. ';
+                } else if (error.code === 'ERR_NETWORK') {
+                    errorMessage += 'Network error. Unable to connect to the server. ';
+                } else if (error.response) {
+                    errorMessage += `Server responded with status: ${error.response.status}. `;
+                    
+                    if (error.response.status === 404) {
+                        errorMessage += 'The requested file may not exist. ';
+                    } else if (error.response.status === 403) {
+                        errorMessage += 'Access to the file is forbidden. ';
+                    } else if (error.response.status >= 500) {
+                        errorMessage += 'The server encountered an error processing your request. ';
+                    }
+                } else if (error.request) {
+                    errorMessage += 'No response received from server. The API endpoint might be unavailable. ';
                 }
-            } else if (error.request) {
-                errorMessage += 'No response received from server. The API endpoint might be unavailable. ';
+            } else {
+                errorMessage += error.message || 'An unknown error occurred.';
             }
+            
+            setError(errorMessage);
+            setCsvData([]);
+            setHeaders([]);
+            generateBasicChart([]);
+        } finally {
+            setIsLoading(false);
         }
-        
-        errorMessage += 'Please check the API endpoint and try again.';
-        setError(errorMessage);
-        
-        // Set empty state for data and visualizations
-        setCsvData([]);
-        setHeaders([]);
-        generateBasicChart([]);
-    } finally {
-        setIsLoading(false);
-    }
-};
-        
-        fetchData();
-    }, [fileName]);
+    }, [fileName, filters, csvRowNumber]);
+
+    // Replace the useEffect with fetchCSV
+    useEffect(() => {
+        fetchCSV();
+    }, [fetchCSV]);
 
     // Function to get AI response for chart generation
     const getAiResponse = async (userPrompt: string) => {
@@ -466,7 +435,7 @@ const fetchData = async () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div className="bg-[#1e293b] p-4 rounded-lg">
                                 <div className="text-xl font-bold mb-2">Rows Count</div>
-                                <div className="text-2xl">{csvData.length}</div>
+                                <div className="text-2xl">{lengthOfFilteredData || csvData.length}</div>
                             </div>
                             <div className="bg-[#1e293b] p-4 rounded-lg">
                                 <div className="text-xl font-bold mb-2">Columns</div>

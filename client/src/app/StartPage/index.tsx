@@ -354,7 +354,7 @@ const StartPage = () => {
             </span>
           )}
         </div>
-        <ResponsiveContainer width="100%" height="100%">
+        {/* <ResponsiveContainer width="100%" height="100%">
           <BarChart data={secondBarChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
@@ -377,7 +377,7 @@ const StartPage = () => {
               ))}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer> */}
       </div>
     );
   };
